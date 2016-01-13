@@ -1,0 +1,14 @@
+[{
+        "id": "ok",
+        "cmd": "echo \"OK\" > index.html && python -m SimpleHTTPServer $PORT0",
+        "healthChecks": [{
+                "path": "/",
+                "portIndex": 0,
+                "gracePeriodSeconds": 1,
+                "intervalSeconds": 5
+        }],
+        "labels": {"consul":""},
+        "instances": 2,
+        "cpus": 0.01,
+        "mem": 32
+}]
