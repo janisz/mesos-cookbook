@@ -13,54 +13,31 @@ import (
 const master = "http://10.10.10.10:5050"
 const path = "/api/v1/scheduler"
 
-type baseEvent struct {
-	Type string `json:"type"`
-}
-
-type subscribedEvent struct {
-	Type       string `json:"type"`
-	Subscribed string `json:"subscribed"`
-}
-
-type subscribed struct {
-	FrameworkID string `json:"framework_id"`
-}
-
-type frameworkID struct {
-	Value string `json:"value"`
-}
-
-func getEventType(jsonBlob []byte) (string, error) {
-	event := baseEvent{}
-	err := json.Unmarshal(jsonBlob, &event)
-	if err != nil {
-		return "", err
-	} else if event.Type == "" {
-		return "", nil
-	} else {
-		return event.Type, nil
-	}
-}
-
 func main() {
-	subscribe()
+	user := "root"
+	name := "simple_framework"
+	subscribe(FrameworkInfo{
+		User: &user,
+		Name: &name,
+	})
 }
 
-func subscribe() error {
-	subscribeBody := `{
-		"type": "SUBSCRIBE",
-		"subscribe": {
-		"framework_info": {
-			"user" :  "root",
-			"name" :  "simple_framework"
-		},
-		"force" : true
-		}
-	}`
+func subscribe(frameworkInfo FrameworkInfo) error {
+	body, err := json.Marshal(struct {
+		Type      string         `json:"type"`
+		Subscribe Call_Subscribe `json:"subscribe"`
+	}{
+		Type:      Call_SUBSCRIBE.String(),
+		Subscribe: Call_Subscribe{FrameworkInfo: &frameworkInfo},
+	})
 
-	res, err := http.Post(master+path, "application/json", bytes.NewBuffer([]byte(subscribeBody)))
 	if err != nil {
-		log.Print(err)
+		log.Printf("%v Error: %v", log.Llongfile, err)
+		return err
+	}
+	res, err := http.Post(master+path, "application/json", bytes.NewBuffer([]byte(body)))
+	if err != nil {
+		log.Printf("%v Error: %v", log.Llongfile, err)
 		return err
 	}
 	defer res.Body.Close()
@@ -69,7 +46,7 @@ func subscribe() error {
 	line, err := reader.ReadString('\n')
 	bytesCount, err := strconv.Atoi(strings.Trim(line, "\n"))
 	if err != nil {
-		log.Print(err)
+		log.Printf("%v Error: %v", log.Llongfile, err)
 		return err
 	}
 	for {
@@ -79,26 +56,11 @@ func subscribe() error {
 		bytesCount, err = strconv.Atoi((line[bytesCount:]))
 
 		if err != nil {
-			log.Print(err)
+			log.Printf("%v Error: %v", log.Llongfile, err)
 			return err
 		}
-		eventType, err := getEventType([]byte(data))
-		if err != nil {
-			log.Print(err)
-			return err
-		}
-
-		switch eventType {
-		case "ERROR":
-			log.Printf("Type %s [%s]", eventType, line)
-		case "OFFERS":
-			log.Printf("Type %s [%s]", eventType, line)
-		case "SUBSCRIBED":
-			var sub subscribedEvent
-			json.Unmarshal([]byte(data), &sub)
-			log.Printf("Type %s [%s]", eventType, sub)
-		case "HEARTBEAT":
-			log.Printf("Type %s", eventType)
-		}
+		var sub Event
+		json.Unmarshal([]byte(data), &sub)
+		log.Printf("Got: [%s]", sub.String())
 	}
 }
