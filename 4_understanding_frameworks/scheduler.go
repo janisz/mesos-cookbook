@@ -10,6 +10,8 @@ import (
 	"strings"
 	"github.com/golang/protobuf/jsonpb"
 	"os"
+	"io"
+	"fmt"
 )
 
 const master = "http://10.10.10.10:5050"
@@ -20,6 +22,7 @@ var marshaller = jsonpb.Marshaler{
 	Indent: "  ",
 	OrigName: true,
 }
+var mesosStreamId string
 
 type scheduler struct {
 
@@ -82,9 +85,46 @@ func subscribe(frameworkInfo FrameworkInfo) error {
 		log.Printf("Got: [%s]", sub.String())
 
 		switch *sub.Type {
+		case Event_SUBSCRIBED:
+			log.Print("Subscribed")
+			frameworkInfo.Id = sub.Subscribed.FrameworkId
+			mesosStreamId = res.Header.Get("Mesos-Stream-Id")
 		case Event_HEARTBEAT: log.Print("PING")
-		case Event_OFFERS: log.Print("Offer")
-		case Event_OFFERS: log.Print("Offer")
+		case Event_OFFERS: {
+
+			offerIds := []*OfferID{}
+			for _, offer := range sub.Offers.Offers {
+				offerIds = append(offerIds, offer.Id)
+			}
+
+			decline := &Call{
+				Type: Call_DECLINE.Enum(),
+				FrameworkId: frameworkInfo.Id,
+				Decline: &Call_Decline{OfferIds: offerIds},
+			}
+			body, err := marshaller.MarshalToString(decline)
+			if err != nil {
+				log.Printf("%v Error: %v", log.Llongfile, err)
+				return err
+			}
+			log.Print(body)
+			req, err := http.NewRequest("POST", master + path, bytes.NewBuffer([]byte(body)))
+			if (err != nil) {
+				return err
+			}
+			req.Header.Set("Mesos-Stream-Id", mesosStreamId)
+			req.Header.Set("Content-Type", "application/json")
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				log.Printf("%v Error: %v", log.Llongfile, err)
+				return err
+			}
+			if (res.StatusCode != 202) {
+				io.Copy(os.Stderr, res.Body)
+				return fmt.Errorf("%s", "Error")
+			}
+			res.Body.Close()
+		}
 		}
 
 	}
