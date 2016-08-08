@@ -3,7 +3,7 @@
 
 Vagrant.configure(2) do |config|
 
-  config.vm.box = "ubuntu/trusty64"
+  config.vm.box = "ubuntu/xenial64"
   config.vm.network "private_network", ip: "10.10.10.10"
   config.vm.hostname = "mesos-playground"
   config.vm.provider "virtualbox" do |vb|
@@ -21,24 +21,16 @@ Vagrant.configure(2) do |config|
 
   DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
   CODENAME=$(lsb_release -cs)
-  echo "deb http://repos.mesosphere.io/${DISTRO} ${CODENAME} main" | \
-    sudo tee /etc/apt/sources.list.d/mesosphere.list
+  apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv E56151BF
+  echo "deb http://repos.mesosphere.com/${DISTRO} ${CODENAME} main" | sudo tee /etc/apt/sources.list.d/mesosphere.list
+  add-apt-repository ppa:webupd8team/java
 
-  DISTRO=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
-  CODENAME=$(lsb_release -cs)-unstable
-  echo "deb http://repos.mesosphere.io/${DISTRO} ${CODENAME} main" | \
-    sudo tee /etc/apt/sources.list.d/mesosphere-unstable.list
-  sudo add-apt-repository ppa:webupd8team/java
+  apt-get -y update
 
-  sudo apt-get -y update
-
-  echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
-  sudo apt-get -qy install curl unzip oracle-java8-set-default zookeeperd mesos marathon  --force-yes
+  echo oracle-java8-installer shared/accepted-oracle-license-v1-1 select true | /usr/bin/debconf-set-selections
+  apt-get -qy install curl unzip python-minimal oracle-java8-set-default mesos marathon
 
   echo "10.10.10.10" > /etc/mesos-slave/hostname
-  mkdir -p /etc/marathon/conf
-  echo "http_callback" > /etc/marathon/conf/event_subscriber
-  echo "http://10.10.10.10:4000/events" > /etc/marathon/conf/http_endpoints
 
   service zookeeper restart
   service mesos-slave restart
