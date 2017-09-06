@@ -20,7 +20,7 @@ import (
 const master = "http://10.10.10.10:5050"
 const path = "/api/v1/scheduler"
 
-var frameworkInfoFile = fmt.Sprintf("%s/%s", os.TempDir(), "framewrok.json")
+var frameworkInfoFile = fmt.Sprintf("%s/%s", os.TempDir(), "framework.json")
 var stateFile = fmt.Sprintf("%s/%s", os.TempDir(), "state.json")
 
 var marshaller = jsonpb.Marshaler{
